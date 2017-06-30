@@ -1,0 +1,164 @@
+buildscript {
+    apply from: 'libraries.gradle'
+
+    repositories {
+        mavenCentral()
+    }
+
+    dependencies {
+        classpath libs.external.gradleExtraConf
+    }
+}
+
+ext {
+    javaVersion = JavaVersion.VERSION_1_8
+    meta = [
+        buildBy: System.getProperty('user.name'),
+        createdBy: "${System.getProperty('java.version')} (${System.getProperty('java.specification.vendor')})"
+    ]
+
+    // non standard props that can be used to pass through to different tasks which launch a separate jvm (like test)
+    // it is necessary to filter out standard props to prevent conflicts of different tools (like jacoco) with these
+    // props, which include boot classpath, libraty path, classpath, etc.
+    systemProps = System.properties.findAll { key, val ->
+        !['awt.', 'file.', 'java.', 'line.', 'os.', 'path.', 'sun.', 'user.', 'org.gradle.'].any { prefix ->
+            key.startsWith(prefix)
+        }
+    }
+}
+
+apply plugin: 'idea'
+
+idea {
+    project {
+        jdkName = "${javaVersion}"
+        languageLevel = "${javaVersion}"
+        vcs = 'Git'
+    }
+    module {
+        name = project.name
+    }
+}
+
+group "tf-idf.spark"
+description 'TF-IDF :: SPARK'
+
+configure(allprojects) {
+    group meta.projectGroup
+
+    defaultTasks 'build'
+    buildDir 'target'
+
+    apply plugin: 'java'
+    apply plugin: 'maven'
+    apply plugin: 'maven-publish'
+    apply plugin: 'nebula.provided-base'
+
+    repositories {
+        mavenCentral()
+    }
+
+    configurations {
+        itestCompile.extendsFrom testCompile
+        itestRuntime.extendsFrom testRuntime
+    }
+
+    tasks.withType(JavaCompile) {
+        options.encoding = 'UTF-8'
+        sourceCompatibility = javaVersion
+        targetCompatibility = javaVersion
+    }
+
+    sourceSets {
+        itest {
+            compileClasspath += main.output + test.output + configurations.itestCompile
+            runtimeClasspath += main.output + test.output + configurations.itestRuntime
+        }
+    }
+
+    // http://docs.oracle.com/javase/8/docs/technotes/tools/unix/javac.html#BHCJCABJ
+    [compileJava, compileTestJava]*.options*.compilerArgs = [
+            '-Xlint:cast',  '-Xlint:classfile',   '-Xlint:deprecation', '-Xlint:dep-ann',  '-Xlint:divzero',
+            '-Xlint:empty', '-Xlint:fallthrough', '-Xlint:finally',     '-Xlint:-options', '-Xlint:overrides',
+            '-Xlint:path',  '-Xlint:processing',  '-Xlint:rawtypes',    '-Xlint:serial',   '-Xlint:static',
+            '-Xlint:try',   '-Xlint:varargs',     '-Xlint:unchecked',   //'-Werror'
+    ]
+
+    task sourceJar(type: Jar) {
+        classifier 'sources'
+        from sourceSets.main.allSource
+    }
+    artifacts.archives sourceJar
+
+    test {
+        useTestNG()
+        testLogging {
+            showCauses true
+            showExceptions true
+            showStackTraces true
+            showStandardStreams true
+        }
+        // pass all the system props to test jvm instead of standard ones
+        systemProperties systemProps
+        include '**/*Test.class'
+
+    }
+
+    task itest(type: Test) {
+        description 'Runs the integration tests'
+        useTestNG()
+        testLogging {
+            showCauses true
+            showExceptions true
+            showStackTraces true
+            showStandardStreams true
+        }
+        systemProperties systemProps
+
+        // change reporting folders for integration tests to prevent conflicts and overwrites of unit tests reports
+        reports {
+            junitXml.destination file("${project.buildDir}/itest-results")
+            html.destination file("${project.buildDir}/reports/itests")
+        }
+        binResultsDir file("${project.buildDir}/itest-results/binary")
+
+        include '**/*IT.class'
+        testClassesDir = sourceSets.itest.output.classesDir
+        classpath = sourceSets.itest.runtimeClasspath
+    }
+
+    jar.doFirst {
+        manifest {
+            attributes (
+                    'Created-By': meta.createdBy,
+                    'Built-By': meta.buildBy,
+
+                    'Build-Timestamp': System.currentTimeMillis(),
+
+                    'Implementation-Title': project.description,
+                    'Implementation-Vendor-Id': project.group,
+                    'Implementation-Version': project.version,
+
+                    'Specification-Title': project.description,
+                    'Specification-Version': project.version
+            )
+        }
+    }
+
+    task spec(type: JavaExec, dependsOn: ['testClasses']) {
+        main = 'org.scalatest.tools.Runner'
+        args = ['-R', sourceSets.test.output.classesDir, '-Q', '-oF', '-u', new File(buildDir, 'test-results')]
+        classpath = sourceSets.test.runtimeClasspath
+        systemProperties systemProps
+    }
+
+    task ispec(type: JavaExec, dependsOn: ['testClasses']) {
+        main = 'org.scalatest.tools.Runner'
+        args = ['-R', sourceSets.test.output.classesDir, '-q', 'IS', '-oF', '-u', new File(buildDir, 'itest-results')]
+        classpath = sourceSets.test.runtimeClasspath
+        systemProperties systemProps
+    }
+
+    test.dependsOn spec
+    itest.dependsOn ispec
+}

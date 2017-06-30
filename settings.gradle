@@ -1,0 +1,3 @@
+rootProject.name = 'tf-idf-spark'
+include 'tf-idf-job'
+
