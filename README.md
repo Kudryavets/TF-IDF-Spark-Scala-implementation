@@ -7,17 +7,17 @@ Output - folder with text files. Each row of each file contains word and a list 
 
 The project is focused on efficiency and scalability thus text preprocessing is kept very simple. Punctuation and digits are removed, all text coerced to lover case. At the same time opportunities for further development are embedded in the system.
 
-The project already have several optimizations:
-1. Amount of shuffles reduced to 1.
-2. BufferTopHolder introduced for efficient aggregation of inverted index.
+The project already has several optimizations:
+1. Amount of shuffles is reduced to 1.
+2. BufferTopHolder is introduced for efficient aggregation of inverted index.
 3. All distributed variables are created in memory saving way.
-4. Kryo serialization used instead of Java serialization
+4. Kryo serialization is used instead of Java serialization.
 
-What can be done:
-1. Additional tuning after data exploration (resources, partitions, data scew).
-2. Changing input/output format (avro, parquet, sequence, msgpack, gzip) for faster reading from disc
-3. Native optimizations of Spark SQL (Catalyst and Tungsten modules)
-4. TF-IDF in Spark ML and Spark MLlib
+What else can be done:
+1. Additional tuning after data exploration (cluster resources, partitions, data scew).
+2. Changing input/output format (avro, parquet, sequence, msgpack, gzip) for faster reading from disc.
+3. Native optimizations of Spark SQL (Catalyst and Tungsten modules).
+4. TF-IDF in Spark ML or Spark MLlib.
 
 The project should be compiled with gradle.
 ```
@@ -31,15 +31,10 @@ export HADOOP_CONF_DIR=/etc/hadoop/conf
 export HADOOP_USER_NAME=hdfs
 
 spark-submit \ 
---class \
+--class TfIdfJob \
 --deploy-mode cluster \
 --master yarn \
---queue default \
---num-executors 5 \
---executor-memory 3G \
---driver-memory 1G \
---conf spark.kryoserializer.buffer.max=300m \
-.jar \
---inputFolder:/user/example/textCorpus \
---outputFolder:/user/example/invertedIndex
+tf-idf-spark/tf-idf-job/target/libs/tf-idf-job-0.0.1-SNAPSHOT.jar\
+--inputFolder:/example/textCorpus \
+--outputFolder:/example/invertedIndex
 ```
