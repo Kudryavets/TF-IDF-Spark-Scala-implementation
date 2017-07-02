@@ -61,17 +61,20 @@ class TfIdfJob(spark: SparkSession,
       .reduceByKey(_ + _)
       .mapValues(wordDocCount => math.log(docCount / wordDocCount))
   
+    val scorePrecision = config.getInt("tfIdfParams.scorePrecision")
     val relevanceListSize = config.getInt("tfIdfParams.relevance.list.size")
     val invertedIndexRdd = tfRdd.join(idfRdd)
-      .mapValues{ case ((docId, tfScore), idfScore) => docId -> tfScore * idfScore }
+      .mapValues{ case ((docId, tfScore), idfScore) =>
+        val score = tfScore * idfScore
+        docId -> BigDecimal(score).setScale(scorePrecision, BigDecimal.RoundingMode.HALF_DOWN).toDouble
+      }
       .aggregateByKey(new BufferTopKeeper(relevanceListSize)) (
         (acc, el) => acc.addElement(el),
         (accLeft, accRight) => accLeft.mergeBuffer(accRight)
       )
   
     invertedIndexRdd
-      .mapValues(_.flush().map{ case (docId, score) =>
-        docId -> BigDecimal(score).setScale(4, BigDecimal.RoundingMode.HALF_DOWN).toDouble})
+      .mapValues(_.flush())
       .mapValues(JsonUtils.toJson)
       .map{ case (id, relevance) => LineBuilder.prettify(id, relevance) }
   }

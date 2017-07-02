@@ -24,6 +24,7 @@ class TfIdfJobSpec extends WordSpec
           |
           |tfIdfParams: {
           |  relevance.list.size: 2
+          |  scorePrecision: 4
           |}
         """.stripMargin
       )
