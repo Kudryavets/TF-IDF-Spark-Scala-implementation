@@ -10,9 +10,9 @@ class TfIdfJobSpec extends WordSpec
     "compute inverted index correctly" in {
       val textCorpus = sparkSession.sparkContext.parallelize(
         Seq(
-          "id_i\tword_i word_i word_ii word_iii",
-          "id_ii\tword_ii word_iii word_iv",
-          "id_iii\tword_iii word_iii word_iv word_v"
+          "idi\twordi wordi wordii wordiii",
+          "idii\twordii wordiii wordiv",
+          "idiii\twordiii wordiii wordiv wordv"
         )
       )
   
@@ -33,11 +33,11 @@ class TfIdfJobSpec extends WordSpec
   
       val result = job.computeInvertedIndex(textCorpus)
       result.collect() should contain theSameElementsAs Seq(
-        "word_i  [{id_i:0.5493}]",                    // tf {id_i: 0.5}                              idf 1.0986
-        "word_ii  [{id_i:0.10125},{id_ii:0.1215}]",   // tf {id_i: 0.25, id_ii: 0.3(3)}              idf 0.405
-        "word_iii  [{id_i:0},{id_ii:0}]",             // tf {id_i: 0.25, id_ii: 0.3(3), id_iii: 0.5} idf 0
-        "word_iv  [{id_ii:0.10125},{id_iii:0.1215}]", // tf {id_ii: 0.3(3), id_iii: 0.25}            idf 0.405
-        "word_v  [{id_iii:0.5493}]"                   // tf (id_iii: 0.25}                           idf 1.0986
+        "wordi  [{\"idi\":0.5493}]",                      // tf {idi: 0.5}                            idf 1.0986
+        "wordii  [{\"idi\":0.1014},{\"idii\":0.1352}]",   // tf {idi: 0.25, idii: 0.3(3)}             idf 0.405465
+        "wordiii  [{\"idii\":0.0},{\"idiii\":0.0}]",      // tf {idi: 0.25, idii: 0.3(3), idiii: 0.5} idf 0
+        "wordiv  [{\"idiii\":0.1014},{\"idii\":0.1352}]", // tf {idii: 0.3(3), idiii: 0.25}           idf 0.405465
+        "wordv  [{\"idiii\":0.2747}]"                     // tf (idiii: 0.25}                         idf 1.0986
       )
     }
   }

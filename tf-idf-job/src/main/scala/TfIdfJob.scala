@@ -49,13 +49,13 @@ class TfIdfJob(spark: SparkSession,
     val tfRdd = initialRdd.flatMap { line =>
       val Array(docId, text) = line.split("\t", 2)
       val wordCounts = wordCounterBr.value(text)
-      val textLength = wordCounts.size
+      val textLength = wordCounts.values.sum.toDouble
     
       wordCounts.mapValues(docId -> _ / textLength)
     }.partitionBy(partitioner)
       .persist(StorageLevel.MEMORY_AND_DISK_SER)
-  
-    val DEFAULT_COUNT = 0
+    
+    val DEFAULT_COUNT = 1
     val idfRdd = tfRdd
       .mapValues(_ => DEFAULT_COUNT)
       .reduceByKey(_ + _)
@@ -70,7 +70,8 @@ class TfIdfJob(spark: SparkSession,
       )
   
     invertedIndexRdd
-      .mapValues(_.flush())
+      .mapValues(_.flush().map{ case (docId, score) =>
+        docId -> BigDecimal(score).setScale(4, BigDecimal.RoundingMode.HALF_DOWN).toDouble})
       .mapValues(JsonUtils.toJson)
       .map{ case (id, relevance) => LineBuilder.prettify(id, relevance) }
   }
