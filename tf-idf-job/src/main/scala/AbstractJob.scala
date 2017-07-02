@@ -2,6 +2,9 @@ import org.apache.spark.sql.SparkSession
 import org.slf4j.{Logger, LoggerFactory}
 
 
+/**
+  * Abstract class for sparkSession initialization.
+  */
 abstract class AbstractJob {
   val logger: Logger = LoggerFactory.getLogger(this.getClass.getName)
 

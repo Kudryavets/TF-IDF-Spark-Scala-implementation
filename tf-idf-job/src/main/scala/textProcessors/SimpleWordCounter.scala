@@ -2,6 +2,12 @@ package textProcessors
 
 import textProcessors.SimpleWordCounter._
 
+
+/**
+  * Class for text processing. Computes amount of words appearances in a text.
+  *
+  * @param textParser Object that implements text preprocessing, removing irrelevant characters, lemmatization and etc.
+  */
 class SimpleWordCounter(textParser: TextParser) {
   type WordCounter = Map[String, Long]
   
