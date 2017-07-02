@@ -7,20 +7,21 @@ import org.apache.spark.storage.StorageLevel
 import textProcessors.{DummyTextParser, SimpleWordCounter}
 import util.{JsonUtils, LineBuilder}
 
+
 /**
   * Main class for TF-IDF computation.
   *
   * It gets initial text corpus from [[CliConfig]], preprocesses text with [[DummyTextParser]] and counts words in each document
-  * with the help of [[SimpleWordCounter]]. Then rdd is flatten to (word -> document id -> count) structure, repartitioned
-  * by word and cahed in serialized form im memory and on disc. Thus we can avoid unnecessary shuffles and recalculations.
+  * with the help of [[SimpleWordCounter]]. Then rdd is flatten to (word -> document id -> tf) structure, repartitioned
+  * by word and cached in serialized form in memory and on disc. Thus we can avoid unnecessary shuffles and recalculations.
   *
-  * On the base of cached rdd computed documnet count per word which is then joined to the cached rdd to get (word -> document id ->
+  * Idf rdd is computed on the base of cached tf rdd  and then joined to the tf rdd to get (word -> document id ->
   * tf-idf score) rdd. After that result rdd efficiently aggregated with [[BufferTopKeeper]] which allows to keep in memory only
   * required amount of elements with highest tf-idf score.
   *
-  * Alternative we could aggregate all document -> word count pairs by word and then count documents in each group and after that
-  * compute tf-idf score, but spark better works with lots of small records then with small amount of large records. Hence our
-  * approach is more sustainable and smart partitioning prevents us from expensive join.
+  * Alternatively we could aggregate tf rdd by word and then compute tf-idf score in each group, but spark better works with lots
+  * of small records then with small amount of large records. Hence our approach is more sustainable, and smart partitioning
+  * prevents us from expensive join.
   *
   * @param spark The entry point to programming Spark
   * @param config Permanent config from config file (environment specific, job specific)
@@ -43,25 +44,26 @@ class TfIdfJob(spark: SparkSession,
     val wordCounter = new SimpleWordCounter(DummyTextParser)
     val wordCounterBr = spark.sparkContext.broadcast(wordCounter)
   
-    val partitioner = new HashPartitioner(config.getInt("tfIdfJobParams.docWordCountRdd.numPartitions"))
+    val partitioner = new HashPartitioner(config.getInt("tfIdfJobParams.tfRdd.numPartitions"))
   
-    val docWordCountRdd = initialRdd.flatMap { line =>
-      val Array(docId, text) = line.split("\t")
+    val tfRdd = initialRdd.flatMap { line =>
+      val Array(docId, text) = line.split("\t", 2)
       val wordCounts = wordCounterBr.value(text)
+      val textLength = wordCounts.size
     
-      wordCounts.mapValues(docId -> _)
+      wordCounts.mapValues(docId -> _ / textLength)
     }.partitionBy(partitioner)
       .persist(StorageLevel.MEMORY_AND_DISK_SER)
   
     val DEFAULT_COUNT = 0
-    val wordDocCountRdd = docWordCountRdd
+    val idfRdd = tfRdd
       .mapValues(_ => DEFAULT_COUNT)
       .reduceByKey(_ + _)
-      .mapValues(corpusWordCount => math.log(corpusWordCount/docCount))
+      .mapValues(wordDocCount => math.log(docCount / wordDocCount))
   
     val relevanceListSize = config.getInt("tfIdfParams.relevance.list.size")
-    val invertedIndexRdd = docWordCountRdd.join(wordDocCountRdd)
-      .mapValues{ case ((docId, docWordCount), corpusWordCount) => docId -> docWordCount / corpusWordCount }
+    val invertedIndexRdd = tfRdd.join(idfRdd)
+      .mapValues{ case ((docId, tfScore), idfScore) => docId -> tfScore * idfScore }
       .aggregateByKey(new BufferTopKeeper(relevanceListSize)) (
         (acc, el) => acc.addElement(el),
         (accLeft, accRight) => accLeft.mergeBuffer(accRight)

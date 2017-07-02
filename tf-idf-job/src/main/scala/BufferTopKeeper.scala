@@ -3,7 +3,7 @@
   *
   * @param topDocsLimit amount of documents to keep while aggregating
   */
-class BufferTopKeeper(topDocsLimit: Int) {
+class BufferTopKeeper(topDocsLimit: Int) extends Serializable {
   require(topDocsLimit > 0, s"InvalidArgument: top in BufferTopHolder required to be > 0 but found $topDocsLimit")
   
   type DocRating = (String, Double)
