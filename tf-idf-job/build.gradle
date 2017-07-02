@@ -1,0 +1,32 @@
+description 'TF-IDF :: JOB'
+
+apply plugin: 'scala'
+
+dependencies {
+    compile libs.external.typesafeConfig
+
+    compile libs.external.ficus
+
+    compile libs.external.scopt
+
+
+    provided libs.external.scalaLang
+
+    provided libs.external.spark
+
+
+    testCompile libs.external.scalaTest
+
+    testCompile libs.external.mockito
+}
+
+jar {
+    zip64 true
+    manifest {
+        attributes 'Main-Class': 'AbstractJob'
+    }
+    from {
+        def dependencies = configurations.runtime - configurations.provided
+        dependencies.collect { (it.isDirectory() || it.name.endsWith(".xml") ) ? it : zipTree(it) }
+    }
+}
