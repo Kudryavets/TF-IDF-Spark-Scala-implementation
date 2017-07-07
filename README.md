@@ -34,7 +34,7 @@ spark-submit \
 --class TfIdfJob \
 --deploy-mode cluster \
 --master yarn \
-tf-idf-spark/tf-idf-job/target/libs/tf-idf-job-0.0.1-SNAPSHOT.jar\
+tf-idf-spark/tf-idf-job/target/libs/tf-idf-job-0.0.1-SNAPSHOT.jar \
 --inputFolder:/example/textCorpus \
 --outputFolder:/example/invertedIndex
 ```
