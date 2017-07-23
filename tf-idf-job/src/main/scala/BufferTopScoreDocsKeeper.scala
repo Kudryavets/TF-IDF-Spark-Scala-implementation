@@ -3,7 +3,7 @@
   *
   * @param topDocsLimit amount of documents to keep while aggregating
   */
-class BufferTopKeeper(topDocsLimit: Int) extends Serializable {
+class BufferTopScoreDocsKeeper(topDocsLimit: Int) extends Serializable {
   require(topDocsLimit > 0, s"InvalidArgument: top in BufferTopHolder required to be > 0 but found $topDocsLimit")
   
   type DocRating = (String, Double)
@@ -15,7 +15,7 @@ class BufferTopKeeper(topDocsLimit: Int) extends Serializable {
     case h :: tail => if(el._2 < h._2) el :: h :: tail else h :: addElementRec(tail, el)
   }
   
-  def addElement(el: DocRating): BufferTopKeeper = {
+  def sequenceOp(el: DocRating): BufferTopScoreDocsKeeper = {
     val newBuffer = addElementRec(buffer, el)
     
     if (newBuffer.size <= topDocsLimit) {
@@ -27,7 +27,7 @@ class BufferTopKeeper(topDocsLimit: Int) extends Serializable {
     this
   }
   
-  def mergeBuffer(rght: BufferTopKeeper): BufferTopKeeper = rght.flush().foldLeft(this)((buf, el) => this.addElement(el))
+  def combineOp(rght: BufferTopScoreDocsKeeper): BufferTopScoreDocsKeeper = rght.flush().foldLeft(this)((buf, el) => this.sequenceOp(el))
   
   def flush(): List[DocRating] = buffer
 }

@@ -16,7 +16,7 @@ import util.{JsonUtils, LineBuilder}
   * by word and cached in serialized form in memory and on disc. Thus we can avoid unnecessary shuffles and recalculations.
   *
   * Idf rdd is computed on the base of cached tf rdd  and then joined to the tf rdd to get (word -> document id ->
-  * tf-idf score) rdd. After that result rdd efficiently aggregated with [[BufferTopKeeper]] which allows to keep in memory only
+  * tf-idf score) rdd. After that result rdd efficiently aggregated with [[BufferTopScoreDocsKeeper]] which allows to keep in memory only
   * required amount of elements with highest tf-idf score.
   *
   * Alternatively we could aggregate tf rdd by word and then compute tf-idf score in each group, but spark better works with lots
@@ -68,9 +68,9 @@ class TfIdfJob(spark: SparkSession,
         val score = tfScore * idfScore
         docId -> BigDecimal(score).setScale(scorePrecision, BigDecimal.RoundingMode.HALF_DOWN).toDouble
       }
-      .aggregateByKey(new BufferTopKeeper(relevanceListSize)) (
-        (acc, el) => acc.addElement(el),
-        (accLeft, accRight) => accLeft.mergeBuffer(accRight)
+      .aggregateByKey(new BufferTopScoreDocsKeeper(relevanceListSize)) (
+        (acc, el) => acc.sequenceOp(el),
+        (accLeft, accRight) => accLeft.combineOp(accRight)
       )
   
     invertedIndexRdd
