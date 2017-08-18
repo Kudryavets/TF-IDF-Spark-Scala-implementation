@@ -59,7 +59,7 @@ class TfIdfJob(spark: SparkSession,
     val idfRdd = tfRdd
       .mapValues(_ => DEFAULT_COUNT)
       .reduceByKey(_ + _)
-      .mapValues(wordDocCount => math.log(docCount / wordDocCount))
+      .mapValues(wordDocCount => math.log(docCount / wordDocCount)) // 1 could be added to avoid dividing by 0 if wordDocCount = 0
   
     val scorePrecision = config.getInt("tfIdfParams.scorePrecision")
     val relevanceListSize = config.getInt("tfIdfParams.relevance.list.size")
