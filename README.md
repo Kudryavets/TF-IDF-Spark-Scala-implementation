@@ -1,5 +1,5 @@
 # TF-IDF-Spark-Scala-implementation
-This is implementation of [TF-IDF algorithm](https://en.wikipedia.org/wiki/Tf–idf) on Scala and Spark.
+This is implementation of [TF-IDF algorithm](https://en.wikipedia.org/wiki/Tf–idf) in Scala and Spark.
 
 Input - folder with text files. Each row of each file contains id and a text of a document separeted by "\t".
 
